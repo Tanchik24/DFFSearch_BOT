@@ -1,5 +1,4 @@
 import os
-import json
 from typing import Dict
 from dotenv import load_dotenv
 import logging

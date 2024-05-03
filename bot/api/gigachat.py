@@ -25,18 +25,18 @@ def get_token():
     response = json.loads(response.text)
     token = response["access_token"]
     os.environ['TOKEN'] = f'Bearer {token}'
-    print(f'Bearer {token}')
 
 
 def send_request(url, headers, payload, prompt):
     try:
         response = requests.request("POST", url, headers=headers, data=payload, verify=False)
         response_data = json.loads(response.text)
-        if response_data['message'] == 'Token has expired':
-            get_token()
-            url, headers, payload = prepare_data(prompt)
-            response = requests.request("POST", url, headers=headers, data=payload, verify=False)
-            response_data = json.loads(response.text)
+        if 'choices' not in list(response_data.keys()):
+            if response_data['message'] == 'Token has expired':
+                get_token()
+                url, headers, payload = prepare_data(prompt)
+                response = requests.request("POST", url, headers=headers, data=payload, verify=False)
+                response_data = json.loads(response.text)
         return response_data['choices'][0]['message']['content']
     except Exception as e:
         logging.error(f"Request failed: {e}")

@@ -6,6 +6,8 @@ class NameExtractor:
         self.m = Mystem()
 
     def predict_names(self, text):
+        if text is None:
+            return None, None, None
         analyze = self.m.analyze(text)
         first_name = None
         second_name = None

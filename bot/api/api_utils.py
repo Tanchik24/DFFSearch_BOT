@@ -1,9 +1,11 @@
 import re
-from bot.api.prompts.fallback import FALLBACK_PROMPT
+from bot.api.prompts import FALLBACK_PROMPT, TELL_ABOUT_BOT, QUESTION_CODE_PROMPT
 from dff.script import Context
 
 prompts_dict = {
-    'fallback_node': FALLBACK_PROMPT
+    'fallback_node': FALLBACK_PROMPT,
+    'tell_about_bot_node': TELL_ABOUT_BOT,
+    'mentor_query': QUESTION_CODE_PROMPT
 }
 
 

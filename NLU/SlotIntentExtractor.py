@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Dict
 from dotenv import load_dotenv
 import logging
@@ -13,6 +14,8 @@ class SlotIntentExtractor:
         self.cache: Dict[str, tuple] = {}
 
     def predict_intent(self, message: str) -> str:
+        if message is None:
+            return 'out_of_scope'
         if message not in self.cache:
             self.__get_predict_from_jointbert(message)
         intent, proba = self.cache[message][0]
@@ -37,6 +40,11 @@ class SlotIntentExtractor:
             logging.error(f"Request failed: {e}")
         except ValueError:
             logging.error("JSON decode error")
+
+    def extract_emails(self, text):
+        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
+        emails = re.findall(email_pattern, text)
+        return emails
 
 
 slot_intent_extractor = SlotIntentExtractor()

@@ -1,0 +1,20 @@
+services:
+  mysql:
+    env_file: [ .env ]
+    image: mysql:latest
+    profiles:
+      - context_storage
+    restart: unless-stopped
+    ports:
+      - 3307:3306
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: mysql -u $${MYSQL_USERNAME} -p$${MYSQL_PASSWORD} -e "select 1;"
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  mysql-data:

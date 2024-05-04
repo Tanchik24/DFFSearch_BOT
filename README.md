@@ -15,8 +15,9 @@ DFFSearch Bot — это обучающий бот для изучения фр�
 - cd DFFJointBert
 ```
 
+Скачайте папку с весами по ссылке
 ```commandline
-Скачайте папку с весами по ссылке https://drive.google.com/drive/folders/1cG85zZ_pLTvz16vUe3jzejEMs5nFlQA8?hl=ru и поместите в корень репозитория 
+https://drive.google.com/drive/folders/1cG85zZ_pLTvz16vUe3jzejEMs5nFlQA8?hl=ru и поместите в корень репозитория 
 ```
 
 ```commandline

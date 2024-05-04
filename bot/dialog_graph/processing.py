@@ -1,15 +1,17 @@
 import logging
-import re
+import json
+import requests
+import os
 from typing import Callable
 from dff.script import Context
 from dff.pipeline import Pipeline
-import pymorphy2
 from bot.dialog_graph.consts import (INTENTS, SLOTS, FORM, PERSONAL_INFO,
-                                     NAME, QUESTION, CODE, EMAIL, DATE, STORAGE)
+                                     NAME, QUESTION, CODE, EMAIL, DATE, STORAGE,
+                                     TRAINING_PROGRESS, TEST_FLAG)
 from NLU.nlu_utils import get_name
-from bot.api.api_utils import make_prompt
-from bot.api.gigachat import get_gigachat_response
-from NLU.SlotIntentExtractor import slot_intent_extractor
+from NLU.QuestionCodeExtractor import question_code_extractor
+from NLU.SlotIntentJointBertExtractor import slot_intent_extractor
+from NLU.EmailExtractor import email_extractor
 from NLU.DateExtractor import date_extractor
 
 
@@ -34,30 +36,35 @@ def make_all_slots_field(ctx: Context):
     if PERSONAL_INFO not in ctx.misc[SLOTS]:
         ctx.misc[SLOTS][PERSONAL_INFO] = {}
 
+    if TRAINING_PROGRESS not in ctx.misc[SLOTS]:
+        with open(os.getenv('TRAINING_PREGRESS'), 'r', encoding='utf-8') as file:
+            training_data = json.load(file)
+        ctx.misc[SLOTS][TRAINING_PROGRESS] = training_data
+
+    if TEST_FLAG not in ctx.misc[SLOTS]:
+        ctx.misc[SLOTS][TEST_FLAG] = False
+
+    if 'test' not in ctx.misc[SLOTS]:
+        ctx.misc[SLOTS]['test'] = {}
+
     logging.info(f'Form for user info: -- {ctx.misc[SLOTS][PERSONAL_INFO]}')
     logging.info(f'Form for mentor query info: -- {ctx.misc[SLOTS][FORM]}')
 
 
 def extract_names(ctx: Context):
-    morph = pymorphy2.MorphAnalyzer()
     node = None
     if ctx.last_label is not None:
         node = ctx.last_label[1]
 
     if node == 'say_hi_node':
         slot_name = PERSONAL_INFO
-    elif (node in ['mentor_query_question_node', 'mentor_query_code_node', 'mentor_query_node',
-                   'mentor_name_node']) or (
-            ctx.misc[INTENTS][-1] in ['mentor_query_question', 'mentor_query_code', 'mentor_query']):
+    elif (node in ['mentor_query_node', 'mentor_name_node']) or (
+            ctx.misc[INTENTS][-1] in ['mentor_query']):
         slot_name = FORM
     else:
         return
 
     name = get_name(ctx.last_request.text)
-    if name is not None:
-        name = morph.parse(name)[0]
-        name = name.normal_form
-        name = name.capitalize()
     logging.info(
         f"Get name for {slot_name} - {name}")
     ctx.misc[SLOTS][slot_name][NAME] = name
@@ -68,33 +75,13 @@ def extract_question_code(ctx: Context):
         return ctx
 
     intent = ctx.misc[INTENTS][-1]
+    if (ctx.last_label[1] in ['mentor_query_node']) or (intent in ['mentor_query']):
+        question, code = question_code_extractor.extract_question_code(ctx)
 
-    if (ctx.last_label[1] in ['mentor_query_node', 'mentor_query_question_node',
-                              'mentor_query_code_node']) or intent in ['mentor_query',
-                                                                       'mentor_query_question',
-                                                                       'mentor_query_code']:
-
-        prompt = make_prompt('mentor_query', ctx)
-        text = get_gigachat_response(prompt)
-        text = text.replace('"', '').lower()
-
-        if 'вопрос' in text:
-            question_match = re.search(r'вопрос: (.*?\?)', text)
-            if question_match:
-                question_text = question_match.group(1)
-                if question_text.lower() != 'нет':
-                    ctx.misc[SLOTS][FORM][QUESTION] = question_text
-
-                    logging.info(f'Extracted question from -- {ctx.last_request.text} -- : -- {question_text}')
-
-        if 'код' in text:
-            code_split = text.split("код: ")
-            if len(code_split) > 1:
-                code_text = code_split[1].strip()
-                if code_text.lower() != 'нет':
-                    ctx.misc[SLOTS][FORM][CODE] = code_text
-
-                    logging.info(f'Extracted question from -- {ctx.last_request.text} -- : -- {code_text}')
+        if question is not None:
+            ctx.misc[SLOTS][FORM][QUESTION] = question
+        if code is not None:
+            ctx.misc[SLOTS][FORM][CODE] = code
 
 
 def extract_slots(ctx: Context):
@@ -105,12 +92,14 @@ def extract_slots(ctx: Context):
     text = ctx.last_request.text
 
     if label in ['email_node', 'unsuccess_email_node']:
-        email = slot_intent_extractor.extract_emails(text)
+        email = email_extractor.extract_emails(text)
+        if not email:
+            return ctx
         ctx.misc[SLOTS][PERSONAL_INFO][EMAIL] = email[0]
         logging.info(f'Extracted email from -- {ctx.last_request.text} -- : -- {email[0]}')
 
-    elif label in ['date_node', 'mentor_query_node', 'mentor_query_question_node', 'mentor_query_code_node'] or \
-            ctx.misc[INTENTS][-1] in ['mentor_query', 'mentor_query_question', 'mentor_query_code']:
+    elif label in ['date_node', 'mentor_query_node'] or \
+            ctx.misc[INTENTS][-1] in ['mentor_query']:
         slots = slot_intent_extractor.predict_slots(text)
         date = None
         if not slots:
@@ -131,14 +120,59 @@ def extract_slots(ctx: Context):
 
 def del_slot(main_slot_name: str, slot_name: str, false_slot: bool) -> Callable:
     def del_slot_inner(ctx: Context, _: Pipeline) -> Context:
+        if (ctx.last_label[1] == 'are_u_sure_node') and (ctx.last_request.text == 'Да'):
+            if slot_name in ctx[SLOTS][main_slot_name]:
+                del ctx[SLOTS][main_slot_name][slot_name]
         if false_slot:
             if ctx.last_request.text == 'Нет':
                 del ctx.misc[SLOTS][main_slot_name][slot_name]
                 logging.info(f'Deleted slot -- {slot_name}')
         else:
-            if slot_name not in ctx.misc[SLOTS][main_slot_name].keys():
+            if slot_name in ctx.misc[SLOTS][main_slot_name].keys():
                 del ctx.misc[SLOTS][main_slot_name][slot_name]
                 logging.info(f'Deleted slot -- {slot_name}')
         return ctx
 
     return del_slot_inner
+
+
+def change_flag(flag_name, value) -> Callable:
+    def change_flag_inner(ctx: Context, _: Pipeline) -> Context:
+        ctx.misc[SLOTS][flag_name] = value
+        return ctx
+
+    return change_flag_inner
+
+
+def test_answer_processing() -> Callable:
+    def test_answer_processing_inner(ctx: Context, _: Pipeline) -> Context:
+        ctx.misc[SLOTS]['test']['user_answers'].append(ctx.last_request.text)
+        return ctx
+
+    return test_answer_processing_inner
+
+
+def clear_intents() -> Callable:
+    def clear_intents_inner(ctx: Context, _: Pipeline) -> Context:
+        ctx.clear(0)
+        return ctx
+
+    return clear_intents_inner
+
+
+def stats(ctx: Context):
+    session_id = ctx.id
+    message = ctx.last_request.text
+    node_name = ctx.last_label[1]
+    intent = ctx.misc[INTENTS][-1]
+
+    url = os.getenv('RAG_URL')
+    params = {
+        'message': message,
+        'session_id': session_id,
+        'intent': intent,
+        'node_name': node_name,
+    }
+
+    response = requests.get(url + 'stats', params=params)
+    logging.info(f'Stats was sent with code response {response}')

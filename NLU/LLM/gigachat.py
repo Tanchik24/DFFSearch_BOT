@@ -27,14 +27,14 @@ def get_token():
     os.environ['TOKEN'] = f'Bearer {token}'
 
 
-def send_request(url, headers, payload, prompt):
+def send_request(url, headers, payload, prompt, model):
     try:
         response = requests.request("POST", url, headers=headers, data=payload, verify=False)
         response_data = json.loads(response.text)
         if 'choices' not in list(response_data.keys()):
             if response_data['message'] == 'Token has expired':
                 get_token()
-                url, headers, payload = prepare_data(prompt)
+                url, headers, payload = prepare_data(prompt, model)
                 response = requests.request("POST", url, headers=headers, data=payload, verify=False)
                 response_data = json.loads(response.text)
         return response_data['choices'][0]['message']['content']
@@ -43,10 +43,10 @@ def send_request(url, headers, payload, prompt):
         return None
 
 
-def prepare_data(prompt):
+def prepare_data(prompt, model):
     url = os.getenv('GIGACHATURL')
     payload = json.dumps({
-        "model": "GigaChat",
+        "model": model,
         "messages": [
             {
                 "role": "user",
@@ -68,12 +68,13 @@ def prepare_data(prompt):
     return url, headers, payload
 
 
-def get_gigachat_response(prompt):
-    url, headers, payload = prepare_data(prompt)
-    response = send_request(url, headers, payload, prompt)
+def get_gigachat_response(prompt, model):
+    url, headers, payload = prepare_data(prompt, model)
+    response = send_request(url, headers, payload, prompt, model)
     if response is None:
         logging.info("Retrying request...")
-        response = send_request(url, headers, payload, prompt)
+        response = send_request(url, headers, payload, prompt, model)
         if response is None:
             return "Возникла ошибка"
+        response = response.replace('Ответ бота:', '')
     return response

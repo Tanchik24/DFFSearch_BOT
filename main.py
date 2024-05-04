@@ -10,7 +10,8 @@ from dff.messengers.telegram import (
 from dff.utils.testing.common import is_interactive_mode
 from bot.dialog_graph.script import script
 from bot.dialog_graph.processing import extract_intent, make_all_slots_field, \
-    extract_names, extract_question_code, extract_slots
+    extract_names, extract_question_code, extract_slots, stats
+from db_connection import db
 
 token = os.getenv('BOT_TOLEN')
 interface = PollingTelegramInterface(token)
@@ -38,20 +39,24 @@ def extract_data(ctx: Context, _: Pipeline):
     logging.info(f'Downloaded file: -- {file_id} --')
 
 
-pipeline = Pipeline.from_script(
-    script=script,
-    start_label=("general_flow", "start_node"),
-    fallback_label=("general_flow", "fallback_node"),
-    messenger_interface=interface,
-    pre_services=[make_all_slots_field, extract_intent,
-                  extract_data,
-                  extract_names, extract_question_code,
-                  extract_slots]
-)
+def get_pipeline():
+    pipeline = Pipeline.from_script(
+        script=script,
+        start_label=("general_flow", "start_node"),
+        fallback_label=("general_flow", "chitchat_node"),
+        messenger_interface=interface,
+        context_storage=db,
+        pre_services=[make_all_slots_field, extract_intent,
+                      extract_data,
+                      extract_names, extract_question_code,
+                      extract_slots],
+        post_services=[stats]
+    )
+    return pipeline
 
 
 def main():
-    pipeline.run()
+    get_pipeline().run()
 
 
 if __name__ == "__main__" and is_interactive_mode():

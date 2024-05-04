@@ -33,4 +33,5 @@ class DateExtractor:
             dates.append(text[match.start:match.stop])
         return dates
 
+
 date_extractor = DateExtractor()

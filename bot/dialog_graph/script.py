@@ -1,29 +1,40 @@
 from dff.script import RESPONSE, TRANSITIONS, GLOBAL, LOCAL, PRE_TRANSITIONS_PROCESSING
 from dff.script import labels as lbl
 import dff.script.conditions as cnd
+from dff.script.core.message import Button
 from dff.messengers.telegram import (
     telegram_condition,
     TelegramMessage,
-    RemoveKeyboard)
-from bot.dialog_graph.processing import del_slot
+    RemoveKeyboard,
+    TelegramUI)
+from bot.dialog_graph.processing import del_slot, change_flag, test_answer_processing, clear_intents
 from bot.dialog_graph.response import (gigacht_response, nice_t_meet_u_response, say_hi_response, \
-    mentor_query_response, question_unsuccess_node, mentor_name_response, email_response,
-                                       success_form_response, are_u_sure_nod_response)
-from bot.dialog_graph.conditions import is_slots_filled, is_intent_match, is_name_exist
-from bot.dialog_graph.consts import PERSONAL_INFO, NAME, FORM, QUESTION, CODE, EMAIL, DATE
+                                       mentor_query_response, question_unsuccess_node, mentor_name_response,
+                                       email_response, qa_response, test_start_response,
+                                       success_form_response, are_u_sure_nod_response,
+                                       training_session_response, generate_progress_response,
+                                       process_test_response, result_node_response)
+from bot.dialog_graph.conditions import is_slots_filled, is_intent_match, is_name_exist, is_flag_true
+from bot.dialog_graph.consts import PERSONAL_INFO, NAME, FORM, QUESTION, CODE, EMAIL, DATE, TEST_FLAG
 
 script = {
     GLOBAL: {
-        TRANSITIONS: {('general_flow', "tell_about_bot_node"): is_intent_match(['tell_about_bot']),
-                      ('form_flow', 'mentor_query_node'): is_intent_match(
-                          ['mentor_query', 'mentor_query_question', 'mentor_query_code']),
+        TRANSITIONS: {('general_flow', 'say_hi_node'): cnd.exact_match(TelegramMessage('/start')),
+                      ('dff_flow', 'check_progress_node'): cnd.exact_match(TelegramMessage('Прогресс')),
+                      ('dff_flow', 'test_node_start'): cnd.exact_match(TelegramMessage('Пройти тест')),
+                      ('general_flow', "tell_about_bot_node"): is_intent_match(['tell_about_bot']),
+                      ('form_flow', 'mentor_query_node'): is_intent_match(['mentor_query']),
                       ('general_flow', "smth_else_node"): is_intent_match(['action_cancle']),
-                      ('dff_flow', 'qa_session_node'): is_intent_match(['qa_framework_info'])}
+                      ('dff_flow', 'qa_session_node'): is_intent_match(['qa_framework_info']),
+                      ('dff_flow', 'training_session_node'): is_intent_match(['training_session']), }
     },
     'general_flow': {
         "start_node": {
             RESPONSE: TelegramMessage(),
-            TRANSITIONS: {('general_flow', 'say_hi_node'): telegram_condition(commands=["start", "restart"])}
+            TRANSITIONS: {('general_flow', 'say_hi_node'): telegram_condition(commands=["start", "restart"])},
+            PRE_TRANSITIONS_PROCESSING: {
+                "1": clear_intents()
+            }
         },
 
         "say_hi_node": {
@@ -32,7 +43,7 @@ script = {
                           ('general_flow', 'ntmu_node'): is_slots_filled(PERSONAL_INFO, NAME)}
         },
 
-        "fallback_node": {
+        "chitchat_node": {
             RESPONSE: gigacht_response
         },
 
@@ -44,14 +55,21 @@ script = {
             RESPONSE: gigacht_response
         },
         "smth_else_node": {
-            RESPONSE: TelegramMessage('Как я могу помочь вам сейчас?')
+            RESPONSE: TelegramMessage('Как я могу помочь вам сейчас?', ui=TelegramUI(
+                buttons=[
+                    Button(text="Прогресс"),
+                    Button(text="Пройти тест"),
+                ],
+                is_inline=False,
+                row_width=4))
         }
     },
 
     "form_flow": {
         LOCAL: {
             TRANSITIONS: {
-                ('form_flow', 'mentor_query_node'): cnd.negation(cnd.any([is_slots_filled(FORM, QUESTION), is_slots_filled(FORM, CODE)])),
+                ('form_flow', 'mentor_query_node'): cnd.negation(
+                    cnd.any([is_slots_filled(FORM, QUESTION), is_slots_filled(FORM, CODE)])),
                 ('form_flow', 'mentor_name_node'): cnd.negation(is_slots_filled(FORM, NAME)),
                 ('form_flow', 'email_node'): cnd.negation(is_slots_filled(PERSONAL_INFO, EMAIL)),
                 ('form_flow', 'date_node'): cnd.negation(is_slots_filled(PERSONAL_INFO, DATE)),
@@ -83,7 +101,6 @@ script = {
         'question_unsuccess_node': {
             RESPONSE: question_unsuccess_node,
             TRANSITIONS: {
-                ('form_flow', 'are_u_sure_node'): is_intent_match(['action_cancle']),
                 lbl.repeat(): cnd.negation(cnd.any([is_slots_filled(FORM, QUESTION),
                                                     is_slots_filled(FORM, CODE),
                                                     telegram_condition(
@@ -94,6 +111,7 @@ script = {
                                                         content_types=["document"],
                                                     )
                                                     ])),
+                ('form_flow', 'are_u_sure_node'): is_intent_match(['action_cancle'])
             }
         },
 
@@ -137,12 +155,15 @@ script = {
         },
 
         'date_node': {
-            RESPONSE: TelegramMessage(text='Пожалуйста, укажите, когда вы предпочли бы получить ответ', ui=RemoveKeyboard()),
+            RESPONSE: TelegramMessage(
+                text='Пожалуйста, укажите, дату и месяу, когда вы свободны. Ментор напишет вам, и вы договоритесь о встрече',
+                ui=RemoveKeyboard()),
             TRANSITIONS: {
                 ('form_flow', 'are_u_sure_node'): is_intent_match(['action_cancle']),
                 lbl.repeat(): cnd.negation(is_slots_filled(FORM, DATE)),
-                ('form_flow', 'success_node'): cnd.any([is_slots_filled(FORM, NAME), is_slots_filled(PERSONAL_INFO, EMAIL),
-                                                        is_slots_filled(PERSONAL_INFO, DATE)])
+                ('form_flow', 'success_node'): cnd.any(
+                    [is_slots_filled(FORM, NAME), is_slots_filled(PERSONAL_INFO, EMAIL),
+                     is_slots_filled(PERSONAL_INFO, DATE)])
             }
         },
 
@@ -152,21 +173,67 @@ script = {
                                          "2": del_slot(FORM, NAME, False),
                                          "3": del_slot(FORM, QUESTION, False),
                                          "4": del_slot(FORM, CODE, False)},
-            TRANSITIONS: {
-                ('general_flow', "smth_else_node"): cnd.true()
-            }
+            TRANSITIONS: {('general_flow', 'say_hi_node'): cnd.exact_match(TelegramMessage('/start')),
+                          ('dff_flow', 'check_progress_node'): cnd.exact_match(TelegramMessage('Прогресс')),
+                          ('dff_flow', 'test_node_start'): cnd.exact_match(TelegramMessage('Пройти тест')),
+                          ('general_flow', "tell_about_bot_node"): is_intent_match(['tell_about_bot']),
+                          ('form_flow', 'mentor_query_node'): is_intent_match(['mentor_query']),
+                          ('general_flow', "smth_else_node"): is_intent_match(['action_cancle']),
+                          ('dff_flow', 'qa_session_node'): is_intent_match(['qa_framework_info']),
+                          ('dff_flow', 'training_session_node'): is_intent_match(['training_session']),
+                          ('general_flow', 'chitchat_node'): is_intent_match(['out_of_scope'])}
         },
         'are_u_sure_node': {
             RESPONSE: are_u_sure_nod_response,
             TRANSITIONS: {
                 ('general_flow', 'smth_else_node'): cnd.exact_match(TelegramMessage('Да'))
-            }
+            },
+            PRE_TRANSITIONS_PROCESSING: {"1": del_slot(FORM, DATE, False),
+                                         "2": del_slot(FORM, NAME, False),
+                                         "3": del_slot(FORM, QUESTION, False),
+                                         "4": del_slot(FORM, CODE, False)}
         }
     },
 
     'dff_flow': {
         'qa_session_node': {
+            RESPONSE: qa_response
+        },
 
+        'training_session_node': {
+            RESPONSE: training_session_response,
+            TRANSITIONS: {
+                ('dff_flow', 'training_session_node'): cnd.exact_match(TelegramMessage('Дальше')),
+                ('general_flow', 'smth_else_node'): cnd.exact_match(TelegramMessage('Закончить обучение'))
+            }
+        },
+
+        'check_progress_node': {
+            RESPONSE: generate_progress_response
+        },
+
+        'test_node_start': {
+            RESPONSE: test_start_response,
+            TRANSITIONS: {
+                ('dff_flow', 'test_node_process'): cnd.true()
+            },
+            PRE_TRANSITIONS_PROCESSING: {"1": change_flag(TEST_FLAG, True)}
+        },
+        'test_node_process': {
+            RESPONSE: process_test_response,
+            TRANSITIONS: {
+                lbl.repeat(): is_flag_true(TEST_FLAG),
+                ('dff_flow', 'result_node'): cnd.negation(is_flag_true(TEST_FLAG))
+            },
+            PRE_TRANSITIONS_PROCESSING: {'1': test_answer_processing()}
+        },
+        'result_node': {
+            RESPONSE: result_node_response,
+            PRE_TRANSITIONS_PROCESSING: {
+                "1": del_slot('test', 'test_info', False),
+                "2": del_slot('test', 'user_answers', False),
+                "3": del_slot('test', 'test_answers', False),
+            }
         }
-    }
+    },
 }

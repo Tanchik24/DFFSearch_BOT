@@ -9,7 +9,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-class SlotIntentExtractor:
+class SlotIntentJointBertExtractor:
     def __init__(self):
         self.cache: Dict[str, tuple] = {}
 
@@ -20,7 +20,7 @@ class SlotIntentExtractor:
             self.__get_predict_from_jointbert(message)
         intent, proba = self.cache[message][0]
         logging.info(f"The model recognized the intent '{intent}' with a probability of {proba:.2%}")
-        return intent if proba > 0.8 else 'out_of_scope'
+        return intent if proba > 0.92 else 'out_of_scope'
 
     def predict_slots(self, message: str) -> dict:
         if message not in self.cache:
@@ -41,10 +41,5 @@ class SlotIntentExtractor:
         except ValueError:
             logging.error("JSON decode error")
 
-    def extract_emails(self, text):
-        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
-        emails = re.findall(email_pattern, text)
-        return emails
 
-
-slot_intent_extractor = SlotIntentExtractor()
+slot_intent_extractor = SlotIntentJointBertExtractor()

@@ -1,0 +1,16 @@
+{
+    "getting_started": {
+        "Installation": false,
+        "Key concepts": false
+    },
+    "Basic Concepts": {
+        "Introduction": false,
+        "Creating Conversational Services with DFF: Defining Dialogue Goals and User Scenarios": false,
+        "Creating Dialogue Flows for User Scenarios": false
+    },
+    "Context guide": {
+        "Introduction": false,
+        "API": false
+    },
+    "last": false
+}

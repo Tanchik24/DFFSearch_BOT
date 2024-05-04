@@ -7,11 +7,25 @@ DFFSearch Bot — это обучающий бот для изучения фр�
 ### JointBertService + DSE - intent and slots extraction 
 #### Сборка сервиса
 
+```commandline
 - git clone https://github.com/Tanchik24/DFFJointBert.git
+```
+
+```commandline
 - cd DFFJointBert
+```
+
+```commandline
 - python -m venv .venv
+```
+
+```commandline
 - pip install -r requirements.txt
+```
+
+```commandline
 - run main.py
+```
 
 ### RAG 
 #### Сборка сервиса
@@ -53,30 +67,11 @@ pyton -m venv .venv
 ```commandline
 pip install -r requirements.txt
 ```
-- 
+
 ```commandline
 docker compose up
 ```
 
 ```commandline
 run main.py
-```
-
-Build the bot:
-```commandline
-docker-compose build
-```
-Testing the bot:
-```commandline
-docker-compose run assistant pytest test.py
-```
-
-Running the bot:
-```commandline
-docker-compose run assistant python run.py
-```
-
-Running in background
-```commandline
-docker-compose up -d
 ```

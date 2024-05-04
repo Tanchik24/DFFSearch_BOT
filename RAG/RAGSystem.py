@@ -3,7 +3,7 @@ import requests
 
 class RAGSystem:
     def __init__(self):
-        self.url = 'http://127.0.0.1:8080/message'
+        self.url = 'http://127.0.0.1:8081/message'
 
     def format_to_html(self, text):
         print(text)
@@ -12,13 +12,17 @@ class RAGSystem:
         print(formatted_text)
         return formatted_text
 
-    def get_answer(self, text, context_id):
+    def get_answer(self, text, context_id, intent, node):
         params = {
             'question': text,
-            'session_id': context_id
+            'session_id': context_id,
+            'intent': intent,
+            'node_name': node
         }
-
-        response = requests.get(self.url + 'message', params=params)
+        print(text)
+        response = requests.get(self.url, params=params)
+        print(response.status_code)
+        print(response.text)
 
         if response.status_code == 200:
             text = response.text.replace('"', '')

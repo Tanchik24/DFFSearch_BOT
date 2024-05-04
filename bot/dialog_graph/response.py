@@ -10,7 +10,7 @@ from dff.script.core.message import Button
 from NLU.LLM.gigachat_utils import make_prompt
 from NLU.LLM.gigachat import get_gigachat_response
 from bot.dialog_graph.consts import SLOTS, PERSONAL_INFO, NAME, QUESTION, FORM, CODE, EMAIL, DATE, TRAINING_PROGRESS, \
-    TEST_FLAG
+    TEST_FLAG, INTENTS
 from bot.context.intro import INTRO_PROMPT
 from RAG.RAGSystem import rag_system
 
@@ -139,7 +139,7 @@ def are_u_sure_nod_response(ctx: Context, _: Pipeline) -> TelegramMessage:
 
 
 def qa_response(ctx: Context, _: Pipeline) -> TelegramMessage:
-    text = rag_system.get_answer(ctx.last_request.text, ctx.id)
+    text = rag_system.get_answer(ctx.last_request.text, ctx.id, ctx.misc[INTENTS][-1], ctx.last_label[1])
     return TelegramMessage(text=text, parse_mode='HTML')
 
 
@@ -255,7 +255,7 @@ def process_test_response(ctx: Context, _: Pipeline) -> TelegramMessage:
 
     if 'user_answers' not in ctx.misc[SLOTS]['test']:
         ctx.misc[SLOTS]['test']['user_answers'] = []
-    if 'test_answers' not in ctx.misc[SLOTS]:
+    if 'test_answers' not in ctx.misc[SLOTS]['test']:
         ctx.misc[SLOTS]['test']['test_answers'] = []
 
     ctx.misc[SLOTS]['test']['test_answers'].append(true_answer)

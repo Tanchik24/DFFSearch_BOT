@@ -15,10 +15,17 @@ DFFSearch Bot — это обучающий бот для изучения фр�
 - cd DFFJointBert
 ```
 
-Скачайте папку с весами по ссылке и поместите в корень репозитория
+Скачайте папки с весами по ссылке и поместите в корень репозитория
 ```commandline
 https://drive.google.com/drive/folders/1cG85zZ_pLTvz16vUe3jzejEMs5nFlQA8?hl=ru
+https://drive.google.com/drive/folders/1czvnXBcrPuk1nX8nfDAaK6krOqxLwHkg?usp=drive_link
 ```
+
+Добавьте .env фалй, скачав по ссылке 
+```commandline
+https://drive.google.com/file/d/186wOynL8C7DU91zgizfl83L0-hZX65VX/view?usp=drive_link
+```
+
 
 ```commandline
 - python -m venv .venv
@@ -71,6 +78,11 @@ pyton -m venv .venv
 
 ```commandline
 pip install -r requirements.txt
+```
+
+Добавьте .env фалй, скачав по ссылке 
+```commandline
+https://drive.google.com/file/d/1_iLeW-3UO7jZTVJjtkkSw_jaocw36qo7/view?usp=drive_link
 ```
 
 ```commandline
